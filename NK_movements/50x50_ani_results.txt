@@ -1,0 +1,5 @@
+compleated for b = 3
+total time:  100.00303941799535 steps:  {29736}
+initial: 0: 915, 1: 919, 2: 476, 3: 190. Total: 2500
+after simulation: 0: 1024, 1: 766, 2: 455, 3: 255
+difference (new - old) 0: 109, 1: -153, 2: -21, 3: 65. Total = 2500
