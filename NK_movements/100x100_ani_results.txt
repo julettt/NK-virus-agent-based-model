@@ -1,5 +1,16 @@
-compleated for b = 3
-total time:  50.00117381053568 steps:  {59789}
-initial: 0: 3693, 1: 3604, 2: 1873, 3: 830. Total: 10000
-after simulation: 0: 4090, 1: 3024, 2: 1842, 3: 1044
-difference (new - old) 0: 397, 1: -580, 2: -31, 3: 214. Total = 10000
+--------
+ver1
+--------
+completed for b = 3
+total time:  50.00018578581177 steps:  {59376}
+initial: 0: 3667, 1: 3681, 2: 1835, 3: 817. Total: 10000
+after simulation: 0: 4065, 1: 3074, 2: 1855, 3: 1006
+difference (new - old) 0: 398, 1: -607, 2: 20, 3: 189. Total = 10000
+--------
+ver2
+--------
+completed for b = 3
+total time:  50.00075831112754 steps:  {59739}
+initial: 0: 3605, 1: 3743, 2: 1850, 3: 802. Total: 10000
+after simulation: 0: 4148, 1: 2933, 2: 1841, 3: 1078
+difference (new - old) 0: 543, 1: -810, 2: -9, 3: 276. Total = 10000

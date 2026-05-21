@@ -12,10 +12,6 @@ t_max = 50
 
 test_mode = True
 
-#P = a / (1 + b * #NK)
-
-#przemnożyć przez liczbę NK na polu
-
 grid = np.zeros((grid_size, grid_size))
 
 #NK_grid initial conditions
@@ -62,7 +58,7 @@ while time < t_max:
     event_type = ['NK_move' for _ in all_propens]
 
 
-    #losujemy czas i zdarzenie dla tego czasu
+    #randomly choosing time and an event for that time
     dt = - np.log(np.random.random()) / total_propensity
     event_id = np.random.choice(len(all_propens), p = all_propens / total_propensity)
     
@@ -74,7 +70,7 @@ while time < t_max:
     if event_type[event_id] == 'NK_move':
 
         r, c = divmod(event_id, grid_size)
-        new_r, new_c = NK_move(r, c) #współrzędne komórki która ma się ruszyć
+        new_r, new_c = NK_move(r, c) #coords of the NK cell that we want to move
         
         move = False
         while move == False:
@@ -86,8 +82,7 @@ while time < t_max:
                 new_r, new_c = NK_move(r, c)
 
 
-        #aktualizacja propensities -> robimy ją tylko dla tych dwóch punktów w których się coś zmieniło
-        
+        #local propensities update        
         NK_moves_propens[r, c] = NK_move_prop(a, b, NK_grid[r, c]) if NK_grid[r, c] else 0
         NK_moves_propens[new_r, new_c] = NK_move_prop(a, b, NK_grid[new_r, new_c])
 
@@ -103,7 +98,7 @@ if test_mode == True:
     new_0 = np.sum(np.where(NK_grid == 0, 1, 0))
             
     print('-------------')
-    print(f'compleated for b = {b}')
+    print(f'completed for b = {b}')
     print('total time: ', time, 'steps: ', {steps})
     print(f'initial: 0: {init_0}, 1: {init_1}, 2: {init_2}, 3: {init_3}. Total: {init_0 + init_1 + init_2 + init_3}')
     print(f'after simulation: 0: {new_0}, 1: {new_1}, 2: {new_2}, 3: {new_3}')
@@ -123,7 +118,7 @@ X[1::2] += 0.5
 X_pts = X.ravel()
 Y_pts = Y.ravel()
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax = plt.subplots(figsize=(10, 10))
 point_size = 100000 / (grid_size ** 2)
 scat = ax.scatter(X_pts, Y_pts, c = frames[0].ravel(), s = point_size, cmap = 'Reds', vmin = 0, vmax = max_NK, edgecolors = 'k')
 #X_pts, Y_pts - constant positions
@@ -146,7 +141,7 @@ def update(frame_idx):
 plt.rcParams['animation.ffmpeg_path'] = r'C:\Program Files\ffmpeg\bin\ffmpeg.exe'
 
 ani = animation.FuncAnimation(fig, update, frames = len(frames), interval = 200)
-ani.save(f'NK_movements_{grid_size}x{grid_size}.mp4', writer = 'ffmpeg', fps = 10, extra_args=['-preset', 'ultrafast'])
+ani.save(f'ver2_NK_movements_{grid_size}x{grid_size}.mp4', writer = 'ffmpeg', fps = 10, dpi = 100, extra_args=['-preset', 'ultrafast'])
 
 plt.tight_layout()
 plt.show()

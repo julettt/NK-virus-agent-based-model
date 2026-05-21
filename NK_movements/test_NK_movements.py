@@ -93,7 +93,7 @@ def run_test(b):
     new_0 = np.sum(np.where(NK_grid == 0, 1, 0))
     
     print('-------------')
-    print(f'compleated for b = {b}')
+    print(f'completed for b = {b}')
     print('total time: ', time, 'steps: ', {steps})
     print(f'initial: 0: {init_0}, 1: {init_1}, 2: {init_2}, 3: {init_3}. Total: {init_0 + init_1 + init_2 + init_3}')
     print(f'after simulation: 0: {new_0}, 1: {new_1}, 2: {new_2}, 3: {new_3}')
