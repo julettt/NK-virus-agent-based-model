@@ -32,7 +32,7 @@ def NK_move_prop(a, b, NK):
     return a * NK / (1 + b * NK)
 
 
-NK_moves_propens = np.where(NK_grid > 0, NK_move_prop(a, b, NK_grid), 0) #NK initial move propensities
+NK_move_propens = np.where(NK_grid > 0, NK_move_prop(a, b, NK_grid), 0) #NK initial move propensities
 
 def NK_move(r, c):
     #possible directions are different for even and odd rows
@@ -50,7 +50,7 @@ steps = 0
 
 while time < t_max:
 
-    all_propens = NK_moves_propens.flatten() #np.concatenate(zdarzenia_A, zdarzenia_B)
+    all_propens = NK_move_propens.flatten() #np.concatenate(zdarzenia_A, zdarzenia_B)
     total_propensity = all_propens.sum()
 
     if total_propensity == 0: break
@@ -83,8 +83,8 @@ while time < t_max:
 
 
         #local propensities update        
-        NK_moves_propens[r, c] = NK_move_prop(a, b, NK_grid[r, c]) if NK_grid[r, c] else 0
-        NK_moves_propens[new_r, new_c] = NK_move_prop(a, b, NK_grid[new_r, new_c])
+        NK_move_propens[r, c] = NK_move_prop(a, b, NK_grid[r, c]) if NK_grid[r, c] else 0
+        NK_move_propens[new_r, new_c] = NK_move_prop(a, b, NK_grid[new_r, new_c])
 
         if steps % 100 == 0:
             frames.append(NK_grid.copy())
