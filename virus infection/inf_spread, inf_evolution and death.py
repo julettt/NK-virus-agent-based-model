@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import matplotlib.tri as tri
+from matplotlib import cm
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-
-grid_size = 5
+grid_size = 20
 moi = 0.1
 t_max = 1
 a = 3/4
@@ -89,9 +89,10 @@ for r in range (grid_size):
 
 #SIMULATION
 frames = []
+times = []
 time = 0
 steps = 0
-max_steps = 1000
+max_steps = 10000
 
 
 total_cell_propens = inf_evol_m + death_m + inf_spread_m
@@ -106,6 +107,7 @@ while steps < max_steps:
 
     dt = - np.log(np.random.random()) / total_propensity
     time += dt
+    times.append(time)
 
     flat_propens = total_cell_propens.flatten()
 
@@ -147,6 +149,15 @@ while steps < max_steps:
         break
 
 
+#creating cmap for the simulation
+viridis = cm.get_cmap('Reds', 256)
+newcolors = viridis(np.linspace(0, 1, 256))
+death_color = np.array([128/256, 128/256, 128/256, 1])
+newcolors[:15, :] = death_color
+newcmp = ListedColormap(newcolors)
+
+
+
 #ANIMATION
 def play_animation():
     rows, cols = grid_size, grid_size
@@ -160,9 +171,9 @@ def play_animation():
     X_pts = X.ravel()
     Y_pts = Y.ravel()
 
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(8, 8))
     point_size = 100000 / (grid_size ** 2)
-    scat = ax.scatter(X_pts, Y_pts, c = frames[0].ravel(), s = point_size, cmap = 'Reds', vmin = -1, vmax = 10, edgecolors = 'k')
+    scat = ax.scatter(X_pts, Y_pts, c = frames[0].ravel(), s = point_size, cmap = newcmp, vmin = -1, vmax = 10, edgecolors = 'k')
     #X_pts, Y_pts - constant positions
     #c - initial color, s - circle size
 
@@ -174,17 +185,20 @@ def play_animation():
 
     plt.colorbar(scat, ax = ax, label = 'epithelial cell state', ticks = range(-1, 11))
 
-    ax.set_title('Epithelial cells death')
+    
 
     def update(frame_idx):
         new_data = frames[frame_idx].ravel()
         scat.set_array(new_data)
+        ax.set_title(f'Epithelial cells only; time: {times[frame_idx]:.3f}')
         return [scat]
 
     plt.rcParams['animation.ffmpeg_path'] = r'C:\Program Files\ffmpeg\bin\ffmpeg.exe'
 
-    ani = animation.FuncAnimation(fig, update, frames = len(frames), interval = 150)
-    #ani.save(f'cell_deaths_{grid_size}x{grid_size}.mp4', writer = 'ffmpeg', fps = 10, dpi = 100, extra_args=['-preset', 'ultrafast'])
+    ani = animation.FuncAnimation(fig, update, frames = len(frames), interval = 50)
+    #ani.save(f'ver2_virus_evolution_without_NK_{grid_size}x{grid_size}.mp4', writer = 'ffmpeg', fps = 75, dpi = 100, extra_args=['-preset', 'ultrafast'])
+
+    print('Animation saved')
 
     plt.tight_layout()
     plt.show()
