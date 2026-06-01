@@ -1,0 +1,20 @@
+------
+results for max_NK = 3, time = 3, grid_size = 100, b = 100
+grid_n - number of grid nodes with n NK cells
+averaged over n = 5 realizations
+------
+mean start state:
+grid_0    3725.8
+grid_1    3749.2
+grid_2    1893.6
+grid_3     631.4
+grid_4       0.0
+grid_5       0.0
+------
+mean end state:
+grid_0    6389.2
+grid_1     317.2
+grid_2     767.4
+grid_3    2526.2
+grid_4       0.0
+grid_5       0.0

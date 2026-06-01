@@ -1,0 +1,12 @@
+fig1, fig2, fig3:
+grid_size = 50x50
+max_NK =  3
+
+fig1:
+for b = 0: t_max = 30h, window = 3h
+
+fig2:
+for b in [1, 3, 5, 20] : t_max = 75h, window = 5h
+
+fig3:
+for b = 100: t_max = 300h, window = 10h
