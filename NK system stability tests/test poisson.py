@@ -81,11 +81,6 @@ def run_test(b):
                 pass
 
 
-            #local propensities update        
-            NK_move_propens[r, c] = NK_move_prop(a, b, NK_grid[r, c]) if NK_grid[r, c] else 0
-            NK_move_propens[new_r, new_c] = NK_move_prop(a, b, NK_grid[new_r, new_c])
-
-
             if steps % 250 == 0 or steps == 0:
 
                 history_data.append({'time': time, 
