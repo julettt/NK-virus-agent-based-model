@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pandas as pd
-from scipy.stats import poisson
+import scipy.stats as stats
 
 grid_size = 50
 NK_ratio = 1.0
@@ -10,42 +10,16 @@ max_NK = 3
 a = 3/4
 b = 20
 t_max = 25
-steps_max = 100000
 ani_step_save = 100
 
-grid = np.zeros((grid_size, grid_size))
 
 def init_NK_grid(NK_ratio):
     k_values = np.arange(max_NK + 1)
-    probs = poisson.pmf(k_values, mu = NK_ratio)
+    probs = stats.poisson.pmf(k_values, mu = NK_ratio)
     probs /= probs.sum()
     NK_grid = np.random.choice(k_values, size = (grid_size, grid_size), p = probs)
     return NK_grid
 
-
-def get_neigh_pairs(NK_grid):
-        
-    r, c = np.ogrid[:grid_size, :grid_size]
-
-    dir_even = np.array([[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]])
-    dir_odd = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]])
-
-    num_dir = len(dir_even)
-
-    centers_vec = []
-    neighs_vec = []
-
-    for i in range(num_dir):
-        dr = np.where(r % 2 == 0, dir_even[i, 0], dir_odd[i, 0]) #offset for coordinate r
-        dc = np.where(r % 2 == 0, dir_even[i, 1], dir_odd[i, 1]) #offset for coordinate c
-
-        nr = (r + dr) % grid_size
-        nc = (c + dc) % grid_size
-
-        centers_vec.extend(NK_grid.flatten())
-        neighs_vec.extend(NK_grid[nr, nc].flatten())
-
-    return pd.DataFrame({'center_cell': centers_vec, 'neighbors': neighs_vec})
 
 
 def get_directions(r):
@@ -57,7 +31,7 @@ def get_directions(r):
     
 
 
-def NK_move_prop(r, c, NK_grid, a = a, b = b):
+def NK_move_prop(r, c, NK_grid):
     
     if NK_grid[r, c] == 0:
         return 0
@@ -76,19 +50,18 @@ def NK_move_prop(r, c, NK_grid, a = a, b = b):
     if not has_valid_neighbors:
         return 0
     
-    return a * NK_grid[r, c] / (1 + b * np.maximum(NK_grid[r, c] - 1, 0))
+    return a * NK_grid[r, c] / (1 + b * np.max(NK_grid[r, c] - 1, 0))
 
 
 def run_simulation():
 
     NK_grid = init_NK_grid(NK_ratio)
-    all_states = list(range(max_NK + 1))
 
     NK_move_propens = np.zeros((grid_size, grid_size))
 
     for r in range(grid_size):
         for c in range(grid_size):
-            NK_move_propens[r, c] = NK_move_prop(r, c, NK_grid, a, b)
+            NK_move_propens[r, c] = NK_move_prop(r, c, NK_grid)
 
 
     time = 0
@@ -121,6 +94,7 @@ def run_simulation():
         neighbors = [((r + dr) % grid_size, (c + dc) % grid_size) for dr, dc in directions]
         valid_neighbors = [(nr, nc) for nr, nc in neighbors if NK_grid[nr, nc] < max_NK]
 
+        #choosing one valid neighbor
         idx = np.random.randint(0, len(valid_neighbors))
         new_r, new_c = valid_neighbors[idx]
 
@@ -137,7 +111,7 @@ def run_simulation():
             cells_to_update.add(((new_r + dr) % grid_size, (new_c + dc) % grid_size))
         
         for ur, uc in cells_to_update:
-            NK_move_propens[ur, uc] = NK_move_prop(ur, uc, NK_grid, a, b)
+            NK_move_propens[ur, uc] = NK_move_prop(ur, uc, NK_grid)
 
         steps += 1
 
