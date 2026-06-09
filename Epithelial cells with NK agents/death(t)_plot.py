@@ -18,16 +18,18 @@ for path in sorted(glob.glob("plot results/*npz")):
     }
     
 
+NK_ratio = 3.0
 
-plot_title = f"M_I = 7"
+plot_title = f"NK_epithelial ratio = {NK_ratio}"
 
 fig, ax = plt.subplots()
 for label, r in results.items():
     ax.plot(r["times"], r["dead"], label = label)
 
+
 ax.set(xlabel = "Time [h]", ylabel = "Dead cells", title = plot_title)
 ax.legend()
 ax.grid(alpha = 0.3)
 plt.tight_layout()
-plt.savefig("M_I=7.png")
+plt.savefig(f"death(t)_NK_ratio={NK_ratio}.png")
 plt.show()

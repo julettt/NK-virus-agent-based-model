@@ -166,9 +166,10 @@ def select_event(matrix, rand_val):
 def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
                    max_NK, a, b, max_inf_state, t_prog, beta_spread, t_spread, M_I,
                    gamma_ind, t_ind, gamma_dep, t_dep,
-                   epith_grid, NK_grid):
+                   epith_grid, NK_grid_initial, NK_grid_delayed):
     
     #preparing grids
+    NK_grid = NK_grid_initial
     epith_is_alive = np.full((grid_size, grid_size), True, dtype = np.bool_)
     NK_move_m = np.zeros((grid_size, grid_size), dtype = np.float64)
     inf_evol_m = np.zeros((grid_size, grid_size), dtype = np.float64)
@@ -265,6 +266,7 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
 
         #introducing NK cells
         if not NK_introduced and time >= time_delay:
+            NK_grid = NK_grid_delayed
             for r in range(grid_size):
                 for c in range(grid_size):
                     _update_NK(r, c)
@@ -411,14 +413,15 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
 def run_with_params(p: dict):
     "run simulation with p as parameters dictionary"
     epith_grid = init_epith_grid(p["MOI"], p["grid_size"])
-    NK_grid = init_NK_grid(p["NK_ratio"], p["max_NK"], p["grid_size"])
+    NK_grid_initial = np.zeros((p["grid_size"], p["grid_size"]), dtype=np.int64)
+    NK_grid_delayed = init_NK_grid(p["NK_ratio"], p["max_NK"], p["grid_size"])
 
     frames_NK, frames_epith, stats_array, total_time, total_steps = run_simulation(p["time_max"], p["time_delay"], 
                                                                     p["max_steps"], p["ani_step_save"], p["grid_size"],
                                                                     p["max_NK"], p["a"], p["b"], p["max_inf_state"],
                                                                     p["t_prog"], p["beta_spread"], p["t_spread"], p["M_I"],
                                                                     p["gamma_ind"], p["t_ind"], p["gamma_dep"], p["t_dep"],
-                                                                    epith_grid, NK_grid)
+                                                                    epith_grid, NK_grid_initial, NK_grid_delayed)
 
     return {"stats_array" : stats_array,
             "total_time": total_time,

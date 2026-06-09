@@ -39,9 +39,11 @@ for ax, t_target in zip(axes, PLOT_TIMES):
     ax.set(xlabel="Infection state (S)", title=f"t = {t_target} h")
     ax.grid(axis="y", alpha=0.3)
 
+M_I = 0
+
 axes[0].set_ylabel("S_i / all_infected_cells [%]")
 axes[0].legend()
-plt.suptitle("Infection distribution (without NK), M_I = 7")
+plt.suptitle(f"Infection distribution (without NK), M_I = {M_I}")
 plt.tight_layout()
-plt.savefig("without_NK_percent_inf_distr_hist.png")
+plt.savefig(f"without_NK_inf_dist_M_I={M_I}.png")
 plt.show()
