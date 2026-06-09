@@ -3,7 +3,7 @@ import scipy.stats as stats
 from numba import njit
 
 
-time_max, max_steps = 10.0, 100000
+"""time_max, max_steps = 10.0, 100000
 ani_step_save = 250
 
 grid_size = 250
@@ -18,19 +18,19 @@ time_delay = 0
 t_prog = 1.0
 beta_spread, t_spread = 1.0, 50.0
 gamma_ind, t_ind = 1.0, 300.0
-gamma_dep, t_dep = 3.0, 100.0
+gamma_dep, t_dep = 3.0, 100.0"""
 
 
 #----- grids initialization functions -----
-def init_epith_grid(MOI):
+def init_epith_grid(MOI, grid_size):
     "initialize epithelial grids with given MOI"
-    k_values = np.arange(2)
-    probs = stats.poisson.pmf(k_values, mu = MOI)
-    probs /= probs.sum()
-    epith_grid = np.random.choice(k_values, size = (grid_size, grid_size), p = probs)
+
+    p_inf = 1 - np.exp(-MOI)
+    epith_grid = (np.random.random((grid_size, grid_size)) < p_inf).astype(np.int64)
+    
     return epith_grid
 
-def init_NK_grid(NK_ratio):
+def init_NK_grid(NK_ratio, max_NK, grid_size):
     "initialize NK grid with given NK:epithelial ratio"
 
     k_values = np.arange(max_NK + 1)
@@ -188,7 +188,7 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
     max_frames = (max_steps // ani_step_save) + 2
     frames_NK = np.zeros((max_frames, grid_size, grid_size), dtype = NK_grid.dtype)
     frames_epith = np.zeros((max_frames, grid_size, grid_size), dtype = epith_grid.dtype)
-    stats_array = np.zeros((max_frames, 4), dtype = np.float64)
+    stats_array = np.zeros((max_frames, 4 + max_inf_state + 1), dtype = np.float64)
     frame_idx = 0
 
     #----- helper functions to update one entry -----
@@ -261,7 +261,7 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
 
 
     #----- evolution process ------
-    while time <= time_max and steps < max_steps:
+    while time <= time_max:
 
         #introducing NK cells
         if not NK_introduced and time >= time_delay:
@@ -295,6 +295,16 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
             stats_array[frame_idx, 1] = float(infected)
             stats_array[frame_idx, 2] = float(dead)
             stats_array[frame_idx, 3] = float(time)
+
+            inf_histogram = np.zeros(max_inf_state + 1, dtype = np.float64)
+
+            for r in range(grid_size):
+                for c in range(grid_size):
+                    S = epith_grid[r, c]
+                    if epith_is_alive[r, c]:
+                        inf_histogram[S] += 1
+            
+            stats_array[frame_idx, 4:] = inf_histogram
 
             frame_idx += 1
 
@@ -397,7 +407,37 @@ def run_simulation(time_max, time_delay, max_steps, ani_step_save, grid_size,
 
 
 #----- simulation ------
-#grids initialization
+
+def run_with_params(p: dict):
+    "run simulation with p as parameters dictionary"
+    epith_grid = init_epith_grid(p["MOI"], p["grid_size"])
+    NK_grid = init_NK_grid(p["NK_ratio"], p["max_NK"], p["grid_size"])
+
+    frames_NK, frames_epith, stats_array, total_time, total_steps = run_simulation(p["time_max"], p["time_delay"], 
+                                                                    p["max_steps"], p["ani_step_save"], p["grid_size"],
+                                                                    p["max_NK"], p["a"], p["b"], p["max_inf_state"],
+                                                                    p["t_prog"], p["beta_spread"], p["t_spread"], p["M_I"],
+                                                                    p["gamma_ind"], p["t_ind"], p["gamma_dep"], p["t_dep"],
+                                                                    epith_grid, NK_grid)
+
+    return {"stats_array" : stats_array,
+            "total_time": total_time,
+            "total_steps": total_steps,
+            "params": p}
+
+
+"""if __name__ == "__main__":
+    default_params = dict(time_max = time_max, time_delay = time_delay, 
+                          max_steps = max_steps, ani_step_save = ani_step_save, grid_size = grid_size, 
+                          max_NK = max_NK, a = a, b = b, max_inf_state = max_inf_state, 
+                          t_prog = t_prog, beta_spread = beta_spread, t_spread = t_spread, M_I = M_I,
+                          gamma_ind = gamma_ind, t_ind = t_ind, gamma_dep = gamma_dep, t_dep = t_dep,
+                          MOI = MOI, NK_ratio = NK_ratio)
+    
+    res = run_with_params(default_params)
+    print(f"Gotowe: t={res['total_time']:.3f} h, kroki={res['total_steps']}")"""
+
+"""#grids initialization
 epith_grid = init_epith_grid(MOI)
 NK_grid = init_NK_grid(NK_ratio)
 
@@ -407,8 +447,19 @@ frames_NK, frames_epith, stats_array, total_time, total_steps = run_simulation(t
                    gamma_ind, t_ind, gamma_dep, t_dep,
                    epith_grid, NK_grid)
 
+np.savez_compressed("simulation_history.npz",
+                    frames_NK = frames_NK,
+                    frames_epith = frames_epith,
+                    stats_array = stats_array,
+                    grid_size = np.array(grid_size),
+                    time_max = np.array(time_max),
+                    total_time = np.array(total_time),
+                    total_steps = np.array(total_steps),
+                    MOI = np.array(MOI),
+                    NK_ratio = np.array(NK_ratio))
+
 print(f'Finished: time = {total_time:.3f} h, steps = {total_steps}.')
 print(f'Frames saved: {len(frames_epith)}.')
 if len(stats_array) > 0:
     last = stats_array[-1]
-    print(f"Final state: healthy = {int(last[0])}, infected = {int(last[1])}, dead = {int(last[2])}.")
+    print(f"Final state: healthy = {int(last[0])}, infected = {int(last[1])}, dead = {int(last[2])}.")"""
