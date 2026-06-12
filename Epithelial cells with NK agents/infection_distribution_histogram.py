@@ -7,43 +7,64 @@ results = {}
 
 for path in sorted(glob.glob("plot results/*npz")):
     data = np.load(path)
+    max_inf_state = int(data["max_inf_state"])
+    tau_dep = int(data["t_dep"])
+    M_I = int(data["M_I"])
+
     label = os.path.basename(path).removesuffix(".npz")
     results[label] = {
         "times": data["stats_array"][:, 3],
-        "inf_hist": data["stats_array"][:, 4:],
+        "inf_hist": data["stats_array"][:, 4:4 + max_inf_state + 1],
+        "dead_inf_hist": data["stats_array"][:, 4 + max_inf_state + 1:],
         "MOI": float(data["MOI"]),
     }
 
 
-PLOT_TIMES = [24.0, 48.0, 72.0]
-bins = np.arange(1, 11)
+PLOT_TIMES = [0.5, 24.0, 48.0]
+with_dead = True
+
+bins = np.arange(1, int(max_inf_state) + 1)
 labels = list(results.keys())
 print(labels)
-n_moi = len(labels)
+n_bars = len(labels)
 
 fig, axes = plt.subplots(nrows = 1, ncols = len(PLOT_TIMES), sharey = True, sharex = True, figsize = (4 * len(PLOT_TIMES), 4))
 
 for ax, t_target in zip(axes, PLOT_TIMES):
 
-    width = 0.8 / n_moi
-    offsets = np.linspace(-0.4 + width/2, 0.4 - width/2, n_moi)
+    width = 0.8 / n_bars
+    offsets = np.linspace(-0.4 + width/2, 0.4 - width/2, n_bars)
 
     for offset, label in zip(offsets, labels):
         r = results[label]
 
         idx = np.argmin(np.abs(r["times"] - t_target))
-        hist = r["inf_hist"][idx, 1:] / r["inf_hist"][idx, 1:].sum() * 100
+        alive_hist = r["inf_hist"][idx, 1 : max_inf_state + 1]
+        dead_hist = r["dead_inf_hist"][idx, 1 : max_inf_state + 1]
 
-        ax.bar(bins + offset, hist, width=width, label=label, alpha=0.85)
+        if with_dead:
+            alive_pct = alive_hist
+            dead_pct = dead_hist
 
-    ax.set(xlabel="Infection state (S)", title=f"t = {t_target} h")
+            bars = ax.bar(bins + offset, alive_pct, width = width, label = label, alpha= 0.85)
+            color = bars[0].get_facecolor()
+            ax.bar(bins + offset, dead_pct, width = width, color = color, alpha = 0.15,
+            bottom=alive_pct)
+
+        else:
+            alive_pct = alive_hist
+
+            bars = ax.bar(bins + offset, alive_pct, width = width, label = label, alpha= 0.85)
+            color = bars[0].get_facecolor()
+
+
+    ax.set(xlabel="Infection state (S)", title=f"t = {t_target} h", ylim = [0, 2000])
     ax.grid(axis="y", alpha=0.3)
 
-M_I = 0
 
-axes[0].set_ylabel("S_i / all_infected_cells [%]")
+axes[0].set_ylabel("Number of cells")
 axes[0].legend()
-plt.suptitle(f"Infection distribution (without NK), M_I = {M_I}")
+plt.suptitle(f"Infection distribution, MOI = 0.1, M_I = {M_I}, max_inf_state={max_inf_state}.")
 plt.tight_layout()
-plt.savefig(f"without_NK_inf_dist_M_I={M_I}.png")
+plt.savefig(f"test3_M_I={M_I}_gamma_dep_t_dep.png")
 plt.show()

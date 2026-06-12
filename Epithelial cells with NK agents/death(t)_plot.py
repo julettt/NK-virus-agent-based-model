@@ -14,13 +14,13 @@ for path in sorted(glob.glob("plot results/*npz")):
         "infected": data["stats_array"][:, 1],
         "dead": data["stats_array"][:, 2],
         "MOI": float(data["MOI"]),
-        "time_delay": float(data["time_delay"])
+        "NK_delay": float(data["NK_delay"])
     }
     
 
-NK_ratio = 3.0
 
-plot_title = f"NK_epithelial ratio = {NK_ratio}"
+
+plot_title = f" "
 
 fig, ax = plt.subplots()
 for label, r in results.items():
@@ -31,5 +31,5 @@ ax.set(xlabel = "Time [h]", ylabel = "Dead cells", title = plot_title)
 ax.legend()
 ax.grid(alpha = 0.3)
 plt.tight_layout()
-plt.savefig(f"death(t)_NK_ratio={NK_ratio}.png")
+plt.savefig(f"death(t).png")
 plt.show()
