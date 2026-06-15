@@ -9,18 +9,22 @@ for path in sorted(glob.glob("plot results/*npz")):
     data = np.load(path)
     max_inf_state = int(data["max_inf_state"])
     tau_dep = int(data["t_dep"])
-    M_I = int(data["M_I"])
+    M_I_spread = int(data["M_I_spread"])
+    M_I_death = int(data["M_I_death"])
+    gamma_dep = float(data["gamma_dep"])
 
     label = os.path.basename(path).removesuffix(".npz")
     results[label] = {
         "times": data["stats_array"][:, 3],
         "inf_hist": data["stats_array"][:, 4:4 + max_inf_state + 1],
         "dead_inf_hist": data["stats_array"][:, 4 + max_inf_state + 1:],
+        "M_I_spread": float(data["M_I_spread"]),
+        "M_I_death": float(data["M_I_death"]),
         "MOI": float(data["MOI"]),
     }
 
 
-PLOT_TIMES = [0.5, 24.0, 48.0]
+PLOT_TIMES = [24.0, 48.0]
 with_dead = True
 
 bins = np.arange(1, int(max_inf_state) + 1)
@@ -48,7 +52,7 @@ for ax, t_target in zip(axes, PLOT_TIMES):
 
             bars = ax.bar(bins + offset, alive_pct, width = width, label = label, alpha= 0.85)
             color = bars[0].get_facecolor()
-            ax.bar(bins + offset, dead_pct, width = width, color = color, alpha = 0.15,
+            ax.bar(bins + offset, dead_pct, width = width, color = color, alpha = 0.35,
             bottom=alive_pct)
 
         else:
@@ -64,7 +68,7 @@ for ax, t_target in zip(axes, PLOT_TIMES):
 
 axes[0].set_ylabel("Number of cells")
 axes[0].legend()
-plt.suptitle(f"Infection distribution, MOI = 0.1, M_I = {M_I}, max_inf_state={max_inf_state}.")
+plt.suptitle(f"Infection distribution, gamma_dep = {gamma_dep}, max_inf_state={max_inf_state}.")
 plt.tight_layout()
-plt.savefig(f"test3_M_I={M_I}_gamma_dep_t_dep.png")
+#plt.savefig(f"testtest_M_I={M_I}_gamma_dep_t_dep.png")
 plt.show()

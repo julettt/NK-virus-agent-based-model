@@ -51,7 +51,7 @@ def prog_prop(t_prog, with_infection_progression):
     return 1 / t_prog
 
 @njit(cache=True)
-def infect_prop(r, c, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I, with_infection_spread):
+def infect_prop(r, c, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I_spread, with_infection_spread):
     """
     propensity of a healthy cell to become infected
     - calculated for a cell that can be infected, not for infectious neighbors
@@ -73,13 +73,13 @@ def infect_prop(r, c, epith_grid, epith_is_alive, grid_size, beta_spread, t_spre
 
         S_neigh = epith_grid[nr, nc]
 
-        if S_neigh > M_I:
+        if S_neigh > M_I_spread:
             total_inf_prop += (beta_spread * S_neigh) / t_spread
     
     return total_inf_prop
 
 @njit(cache=True)
-def death_ind_prop(r, c, epith_grid, gamma_ind, t_ind, M_I, with_death_ind):
+def death_ind_prop(r, c, epith_grid, gamma_ind, t_ind, M_I_death, with_death_ind):
     "propensity to die independent of its local neighborhood"
 
     if with_death_ind == False:
@@ -88,14 +88,14 @@ def death_ind_prop(r, c, epith_grid, gamma_ind, t_ind, M_I, with_death_ind):
 
     S_cell = epith_grid[r, c]
 
-    if S_cell > M_I:
+    if S_cell > M_I_death:
         return (gamma_ind + S_cell) / t_ind
 
     return gamma_ind / t_ind
 
 
 @njit(cache=True)
-def death_dep_prop(r, c, epith_grid, NK_grid, gamma_dep, t_dep, M_I, with_death_dep):
+def death_dep_prop(r, c, epith_grid, NK_grid, gamma_dep, t_dep, M_I_death, with_death_dep):
     "propensity to die provoked by the presence of NK cells"
     
     if with_death_dep == False:
@@ -104,7 +104,7 @@ def death_dep_prop(r, c, epith_grid, NK_grid, gamma_dep, t_dep, M_I, with_death_
     NK_cells = NK_grid[r, c]
     S_cell = epith_grid[r, c]
 
-    if S_cell > M_I:
+    if S_cell > M_I_death:
         return (gamma_dep + S_cell) * NK_cells / t_dep
 
     return gamma_dep * NK_cells / t_dep
@@ -161,7 +161,7 @@ def select_event(matrix, rand_val):
 
 @njit(cache=True)
 def run_simulation(time_max, virus_delay, NK_delay, max_steps, ani_step_save, grid_size,
-                   max_NK, a, b, max_inf_state, t_prog, beta_spread, t_spread, M_I,
+                   max_NK, a, b, max_inf_state, t_prog, beta_spread, t_spread, M_I_spread, M_I_death,
                    gamma_ind, t_ind, gamma_dep, t_dep,
                    epith_grid_delayed, empty_grid, NK_grid_delayed,
                    with_death_ind, with_death_dep, with_infection_spread, with_infection_progression):
@@ -236,26 +236,62 @@ def run_simulation(time_max, virus_delay, NK_delay, max_steps, ani_step_save, gr
                 nr, nc = neighbors[i, 0], neighbors[i, 1]
                 if epith_is_alive[nr, nc] and epith_grid[nr, nc] == 0:
                     #our neighbor is both alive and healty, so it can get infected
-                    _set_spread(nr, nc, infect_prop(nr, nc, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I, with_infection_spread))
+                    _set_spread(nr, nc, infect_prop(nr, nc, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I_spread, with_infection_spread))
 
             return
 
         #----- alive cell -----
         S = epith_grid[r, c]
         _set_evol(r, c, prog_prop(t_prog, with_infection_progression) if 0 < S < max_inf_state else 0.0)
-        _set_death(r, c, death_ind_prop(r, c, epith_grid, gamma_ind, t_ind, M_I, with_death_ind) + death_dep_prop(r, c, epith_grid, NK_grid, gamma_dep, t_dep, M_I, with_death_dep))
+        _set_death(r, c, death_ind_prop(r, c, epith_grid, gamma_ind, t_ind, M_I_death, with_death_ind) + death_dep_prop(r, c, epith_grid, NK_grid, gamma_dep, t_dep, M_I_death, with_death_dep))
 
         neighbors = get_hex_neighbors(r, c, grid_size)
         for i in range(6):
             nr, nc = neighbors[i, 0], neighbors[i, 1]
             if epith_is_alive[nr, nc] and epith_grid[nr, nc] == 0:
                     #our neighbor is both alive and healty, so it can get infected
-                    _set_spread(nr, nc, infect_prop(nr, nc, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I, with_infection_spread))
+                    _set_spread(nr, nc, infect_prop(nr, nc, epith_grid, epith_is_alive, grid_size, beta_spread, t_spread, M_I_spread, with_infection_spread))
 
     
     def _update_NK(r, c):
         _set_NK(r, c, NK_move_prop(r, c, NK_grid, max_NK, grid_size, a, b))
 
+    def _save_frame():
+        nonlocal frame_idx
+
+        frames_NK[frame_idx] = NK_grid.copy()
+        frames_epith[frame_idx] = epith_grid.copy()
+
+        #----- statistics -----
+        healthy = 0
+        infected = 0
+        dead = 0
+        for r in range(grid_size):
+            for c in range(grid_size):
+                if not epith_is_alive[r, c]:
+                    dead += 1
+                elif epith_grid[r, c] == 0:
+                    healthy += 1
+                else:
+                    infected += 1
+
+        stats_array[frame_idx, 0] = float(healthy)
+        stats_array[frame_idx, 1] = float(infected)
+        stats_array[frame_idx, 2] = float(dead)
+        stats_array[frame_idx, 3] = float(time)
+
+        inf_histogram = np.zeros(max_inf_state + 1, dtype = np.float64)
+
+        for r in range(grid_size):
+            for c in range(grid_size):
+                S = epith_grid[r, c]
+                if epith_is_alive[r, c]:
+                    inf_histogram[S] += 1
+            
+        stats_array[frame_idx, 4: 4 + max_inf_state + 1] = inf_histogram
+        stats_array[frame_idx, 4 + max_inf_state + 1 :] = dead_inf_hist
+           
+        frame_idx += 1
 
     #----- evolution process ------
     while time <= time_max:
@@ -283,39 +319,7 @@ def run_simulation(time_max, virus_delay, NK_delay, max_steps, ani_step_save, gr
         
         #saving frames for animation
         if steps % ani_step_save == 0:
-            frames_NK[frame_idx] = NK_grid.copy()
-            frames_epith[frame_idx] = epith_grid.copy()
-
-            #----- statistics -----
-            healthy = 0
-            infected = 0
-            dead = 0
-            for r in range(grid_size):
-                for c in range(grid_size):
-                    if not epith_is_alive[r, c]:
-                        dead += 1
-                    elif epith_grid[r, c] == 0:
-                        healthy += 1
-                    else:
-                        infected += 1
-
-            stats_array[frame_idx, 0] = float(healthy)
-            stats_array[frame_idx, 1] = float(infected)
-            stats_array[frame_idx, 2] = float(dead)
-            stats_array[frame_idx, 3] = float(time)
-
-            inf_histogram = np.zeros(max_inf_state + 1, dtype = np.float64)
-
-            for r in range(grid_size):
-                for c in range(grid_size):
-                    S = epith_grid[r, c]
-                    if epith_is_alive[r, c]:
-                        inf_histogram[S] += 1
-            
-            stats_array[frame_idx, 4: 4 + max_inf_state + 1] = inf_histogram
-            stats_array[frame_idx, 4 + max_inf_state + 1 :] = dead_inf_hist
-            
-            frame_idx += 1
+            _save_frame()
 
         PROP_total = total_NK_move + total_inf_evol + total_inf_spread + total_death
 
@@ -326,12 +330,17 @@ def run_simulation(time_max, virus_delay, NK_delay, max_steps, ani_step_save, gr
             if not virus_introduced and virus_delay <= time_max:
                 time = virus_delay
                 continue
+            print(f'no possible events, PROP_total = {PROP_total}')
+            time = time_max
+            _save_frame()
             break
         
         infection_can_happen = with_infection_spread or with_infection_progression
 
         if infection_can_happen and total_inf_evol + total_inf_spread == 0.0 and NK_introduced and virus_introduced:
             #infection once was and now it is gone, only NK cells remains
+            print(f'virus is gone')
+            _save_frame()
             break
         
 
@@ -422,6 +431,7 @@ def run_simulation(time_max, virus_delay, NK_delay, max_steps, ani_step_save, gr
 
         steps += 1
 
+    _save_frame()
     return frames_NK[:frame_idx], frames_epith[:frame_idx], stats_array[:frame_idx], time, steps
 
 
@@ -437,12 +447,14 @@ def run_with_params(p: dict):
     frames_NK, frames_epith, stats_array, total_time, total_steps = run_simulation(p["time_max"], p["virus_delay"], p["NK_delay"],
                                                                     p["max_steps"], p["ani_step_save"], p["grid_size"],
                                                                     p["max_NK"], p["a"], p["b"], p["max_inf_state"],
-                                                                    p["t_prog"], p["beta_spread"], p["t_spread"], p["M_I"],
+                                                                    p["t_prog"], p["beta_spread"], p["t_spread"], p["M_I_spread"], p["M_I_death"],
                                                                     p["gamma_ind"], p["t_ind"], p["gamma_dep"], p["t_dep"],
                                                                     epith_grid_delayed, empty_grid, NK_grid_delayed,
                                                                     p["with_death_ind"], p["with_death_dep"], p["with_infection_spread"], p["with_infection_progression"])
 
     return {"stats_array" : stats_array,
+            "frames_NK": frames_NK,
+            "frames_epith": frames_epith,
             "total_time": total_time,
             "total_steps": total_steps,
             "params": p}

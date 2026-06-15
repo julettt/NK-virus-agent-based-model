@@ -9,7 +9,8 @@ for path in sorted(glob.glob("plot results/*npz")):
     data = np.load(path)
     max_inf_state = int(data["max_inf_state"])
     tau_dep = int(data["t_dep"])
-    M_I = int(data["M_I"])
+    M_I_spread = int(data["M_I_spread"])
+    M_I_death = int(data["M_I_death"])
 
     label = os.path.basename(path).removesuffix(".npz")
     results[label] = {
@@ -28,15 +29,14 @@ with_nk = {k: v for k, v in results.items() if k.startswith("with NK")}
 without_nk = {k: v for k, v in results.items() if k.startswith("without NK")}
 
 def moi_key(label):
-    return float(label.split("gamma_dep=")[1])
+    return float(label.split("NK_delay=")[1])
 
 moi_labels_nk = sorted(with_nk.keys(), key=moi_key)
 moi_labels_no_nk = sorted(without_nk.keys(), key=moi_key)
 moi_values = [moi_key(l) for l in moi_labels_nk]
 n_moi = len(moi_values)
 
-
-PLOT_TIMES = [0, 24.0, 48.0]
+PLOT_TIMES = [24.0, 72.0, 120.0]
 cell_types = ["healthy", "infected", "dead"]
 cell_colors = {"healthy": "tab:green", "infected": "tab:orange", "dead": "tab:red"}
 
@@ -74,18 +74,17 @@ for col, t_target in enumerate(PLOT_TIMES):
         ax.bar(x + center - bar_width / 2, vals_no_nk, width=bar_width, color=color, alpha=0.35,
             label=f"{cell_type} - without NK" if col == 0 else "_nolegend_")
 
-        #DORZUCIĆ WERSJĘ Z NO_NK JAK BĘDZIE POTRZEBA
 
     ax.set_xticks(x)
     ax.set_xticklabels([str(m) for m in moi_values])
-    ax.set(xlabel="gamma_dep", title=f"t = {t_target} h", ylim=[0, 10000])
+    ax.set(xlabel="gamma_dep", title=f"t = {t_target} h", ylim=[0, 10500])
     ax.grid(axis="y", alpha=0.3)
 
 axes[0].set_ylabel("Number of cells")
 axes[0].legend(fontsize=8, ncol=2)
 
 
-plt.suptitle(f"Cell counts by time point with NK cells, M_I = {M_I}, without death independent")
+plt.suptitle(f"Cell counts by time point with and without NK cells")
 plt.tight_layout()
-plt.savefig(f"test_gamma_dep=0.png")
+plt.savefig(f"test.png")
 plt.show()
