@@ -1,0 +1,6 @@
+BASE_params = dict(time_max = 120.0, virus_delay = 0.0, NK_delay = 4.0, max_steps = 1_000_000, ani_step_save = 10_000,
+                   grid_r = 40, grid_c = 250, max_NK = 3, a = 1.0, b = 3.0, max_inf_state = 30,
+                   t_prog = 1.0, beta_spread = 0.7502, t_spread = 119.6937, M_I_spread = 3, M_I_death = 3,
+                   gamma_ind = 0.0514, t_ind = 399.1724, gamma_dep = 0.0520, t_dep = 21.3922, 
+                   MOI = 0.1, NK_ratio = 1.0, 
+                   with_death_dep = True, with_death_ind = True, with_infection_spread = True, with_infection_progression = True)
