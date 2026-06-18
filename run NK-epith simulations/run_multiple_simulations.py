@@ -15,16 +15,16 @@ T_SPREAD = [50.0, 33.33333, 25.0]
 
 print('-------- t spread --------')
 for i, val in enumerate(T_SPREAD):    
-    run_for_params(idx = i, t_spread_val = val, c_I_NK_val = 0, NK_ratio_val = 0.1, NK_delay_val = 0.5)
+    run_for_params(idx = i, t_spread_val = val, c_I_NK_val = 0, NK_ratio_val = 1.0, NK_delay_val = 0.5)
 
 C_I_NK = [0, 0.01, 0.02, 0.03, 0.1]
 
 print('-------- c_I_NK --------')
 for i, val in enumerate(C_I_NK):    
-    run_for_params(idx = i + len(T_SPREAD), t_spread_val = 25.0, c_I_NK_val = val, NK_ratio_val = 0.1, NK_delay_val = 0.5)
+    run_for_params(idx = i + len(T_SPREAD), t_spread_val = 25.0, c_I_NK_val = val, NK_ratio_val = 1.0, NK_delay_val = 0.5)
 
 NK_RATIO = [0.1, 0.3, 0.5, 1.0, 1.5]
 
 print('-------- NK_ratio --------')
-for i, val in enumerate(C_I_NK):    
+for i, val in enumerate(NK_RATIO):    
     run_for_params(idx = i + len(T_SPREAD) + len(C_I_NK), t_spread_val = 25.0, c_I_NK_val = 0.1, NK_ratio_val = val, NK_delay_val = 0.5)
