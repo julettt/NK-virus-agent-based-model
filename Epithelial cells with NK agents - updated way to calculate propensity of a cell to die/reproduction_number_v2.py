@@ -62,7 +62,7 @@ def calculate_analytical_R(p, with_NK = True):
 p = dict(time_max = 10_000.0, virus_delay = 0.0, NK_delay = 4.0, max_steps = 50_000_000, ani_step_save = 5_000,
                    grid_r = 50, grid_c = 500, max_NK = 3, a = 1.0, b = 3.0, max_inf_state = 15,
                    t_prog = 1, beta_spread = 1, t_spread = 50, M_I = 5, M_D = 5,
-                   c_0 = 0, c_I = 0.01, c_NK = 0, c_I_NK = 0.03, 
+                   c_0 = 0, c_I = 0.03, c_NK = 0, c_I_NK = 0.00, 
                    MOI = 1, NK_ratio = 1.0, 
                    with_death_I = True, with_death_NK = True, with_infection_spread = True, with_infection_progression = True)
 
