@@ -5,7 +5,7 @@ from nk_epith_model_v2 import run_with_params
 
 def run_for_params(idx, t_spread_val = 50, c_I_NK_val = 0, NK_ratio_val = 0.1, NK_delay_val = 4.0):
 
-    BASE_params = dict(time_max = 10_000.0, virus_delay = 0.0, NK_delay = NK_delay_val, max_steps = 50_000_000, ani_step_save = 10_000,
+    BASE_params = dict(time_max = 10_000.0, virus_delay = 0.0, NK_delay = NK_delay_val, max_steps = 50_000_000, ani_step_save = 1_000,
                     grid_r = 50, grid_c = 200, max_NK = 3, a = 1.0, b = 3.0, max_inf_state = 15,
                     t_prog = 1, beta_spread = 1, t_spread = t_spread_val, M_I = 5, M_D = 5,
                     c_0 = 0, c_I = 0.03, c_NK = 0, c_I_NK = c_I_NK_val, 
