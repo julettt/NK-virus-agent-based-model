@@ -74,11 +74,14 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
     print("Simulation results saved to .npz files.")
 
     # ----- PLOTTING THE RESULTS -----
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
     fig.suptitle("Effect of NK cells on the course of viral infection", fontsize=16)
 
     s_max = params["s_max"]
     states_x = np.arange(s_max + 1)
+    ns1_col = 4 + 2 * (s_max + 1)
+    npf_col = ns1_col + 1
+
 
     times_to_plot = [24.0, 48.0]
 
@@ -87,6 +90,9 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
 
     bar_axes = []
     bar_ymax = 0.0
+
+    prot_axes = []
+    prot_ymax = 0.0
 
     for i, t_target in enumerate(times_to_plot):
         idx_nk = get_closest_frame(stats_nk, t_target)
@@ -123,10 +129,10 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
         ax_hist = axes[1, i]
 
         alive_nk = stats_nk[idx_nk, 4 : 4 + s_max + 1].copy()
-        dead_nk = stats_nk[idx_nk, 4 + s_max + 1:].copy()
+        dead_nk = stats_nk[idx_nk, 4 + s_max + 1 : 4 + 2 * (s_max + 1)].copy()
 
         alive_no_nk = stats_no_nk[idx_no_nk, 4 : 4 + s_max + 1].copy()
-        dead_no_nk = stats_no_nk[idx_no_nk, 4 + s_max + 1 :].copy()
+        dead_no_nk = stats_no_nk[idx_no_nk, 4 + s_max + 1 : 4 + 2 * (s_max + 1)].copy()
 
         ax_hist.bar(states_x - bar_width/2, alive_nk, bar_width, label = 'Alive (NK)', color = 'steelblue')
         ax_hist.bar(states_x - bar_width/2, dead_nk, bar_width, bottom = alive_nk, label = 'Dead (NK)', color = 'steelblue', alpha = 0.5)
@@ -134,8 +140,9 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
         ax_hist.bar(states_x + bar_width/2, alive_no_nk, bar_width, label = 'Alive (no NK)', color = 'palevioletred')
         ax_hist.bar(states_x + bar_width/2, dead_no_nk, bar_width, bottom = alive_no_nk, label = 'Dead (no NK)', color = 'palevioletred', alpha = 0.5)
 
-        ax_hist.axvline(params["m_d"], color = 'gray', linestyle = '--', linewidth = 1, label = 'death threshold $m_d$' if i == 0 else None)
-        
+        ax_hist.axvline(params["m_ns1"], color = 'gray', linestyle = '--', linewidth = 1, label = 'protein threshold $m_{ns1}$' if i == 0 else None)
+        ax_hist.axvline(params["m_npf"], color = 'gray', linestyle = ':', linewidth = 1, label = 'protein threshold $m_{npf}$' if i == 0 else None)
+
         ax_hist.set_title(f"Infection state distribution at {t_target:.0f}h")
         ax_hist.set_xlabel("Infection state s")
         ax_hist.set_ylabel("Number of living cells")
@@ -149,11 +156,36 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
         hist_axes.append(ax_hist)
         hist_ymax = max(hist_ymax, np.max((alive_nk + dead_nk)[1:]), np.max((alive_no_nk + dead_no_nk)[1:]))
 
+        # --- PROTEIN LEVELS (mean per living cell) ---
+        ax_prot = axes[2, i]
+
+        ns1_vals = [stats_nk[idx_nk, ns1_col], stats_no_nk[idx_no_nk, ns1_col]]
+        npf_vals = [stats_nk[idx_nk, npf_col], stats_no_nk[idx_no_nk, npf_col]]
+
+        x_prot = np.arange(2)   #groups: [with NK, without NK]
+        ax_prot.bar(x_prot - bar_width/2, ns1_vals, bar_width, label = 'NS1', color = 'mediumpurple')
+        ax_prot.bar(x_prot + bar_width/2, npf_vals, bar_width, label = 'Structural (NP/F)', color = 'teal')
+
+        ax_prot.set_title(f"Protein levels at {t_target:.0f}h")
+        ax_prot.set_xticks(x_prot)
+        ax_prot.set_xticklabels(['With NK cells', 'Without NK cells'])
+        ax_prot.set_ylabel("Mean protein amount per living cell [a.u.]")
+        ax_prot.grid(axis = 'y', linestyle = '--', alpha = 0.3)
+
+        if i == 0:
+            ax_prot.legend(fontsize = 'small')
+
+        prot_axes.append(ax_prot)
+        prot_ymax = max(prot_ymax, max(ns1_vals), max(npf_vals))
+
     for ax_hist in hist_axes:
         ax_hist.set_ylim(0, hist_ymax * 1.05)
 
     for ax_bar in bar_axes:
         ax_bar.set_ylim(0, bar_ymax * 1.05)
+    
+    for ax_prot in prot_axes:
+        ax_prot.set_ylim(0, prot_ymax * 1.05)
 
     # --- CUMULATIVE DEAD-CELL COUNT OVER TIME ---
     ax_dead_time = axes[0, 2]
@@ -174,6 +206,20 @@ def run_experiments_and_plot(config_file = "params.json", rnd_seed = 100):
     ax_inf_time.set_ylabel("Infected cells (alive)")
     ax_inf_time.grid(linestyle = '--', alpha = 0.3)
     ax_inf_time.legend()
+
+    # --- PROTEIN LEVELS OVER TIME ---
+    ax_prot_time = axes[2, 2]
+    ax_prot_time.plot(stats_nk[:, 3], stats_nk[:, ns1_col], label = 'NS1 (NK)', color = 'rebeccapurple', linewidth = 2)
+    ax_prot_time.plot(stats_no_nk[:, 3], stats_no_nk[:, ns1_col], label = 'NS1 (no NK)', color = 'plum', linewidth = 2)
+    ax_prot_time.plot(stats_nk[:, 3], stats_nk[:, npf_col], label = 'NP/F (NK)', color = 'teal', linewidth = 2)
+    ax_prot_time.plot(stats_no_nk[:, 3], stats_no_nk[:, npf_col], label = 'NP/F (no NK)', color = 'mediumaquamarine', linewidth = 2)
+    for t in times_to_plot:
+        ax_prot_time.axvline(t, color = 'gray', linestyle = ':', linewidth = 1)
+    ax_prot_time.set_title("Mean protein levels over time")
+    ax_prot_time.set_xlabel("Time [h]")
+    ax_prot_time.set_ylabel("Mean protein amount per living cell [a.u.]")
+    ax_prot_time.grid(linestyle = '--', alpha = 0.3)
+    ax_prot_time.legend(fontsize = 'small')
 
     plt.tight_layout(rect = [0, 0.03, 1, 0.95])
     plt.savefig("simulation_summary.jpg", dpi = 300)

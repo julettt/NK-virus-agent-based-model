@@ -222,14 +222,15 @@ def fenwick_find(tree, rand_val, n, log_n):
 #------------------------------------------------------------
 
 @njit(cache=True)
-def progression_prop(t_prog, with_infection_progression):
+def progression_prop(t_prog, r_val,  with_infection_progression):
     """Propensity of an infected cell to progress from state s to s + 1.
  
-    This propensity does not depend on which cell or its neighbors are in which state (it is a constant rate, 1/t_prog, applied to any cell
+    This propensity does not depend on which cell or its neighbors are in which state (it is a constant rate, r_val/t_prog, applied to any cell
     with 0 < s < s_max) - the caller is responsible for only invoking this for such cells.
  
     Args:
         t_prog: mean time (in hours) for a single s -> s + 1 transition.
+        r_val: reduction of infectivity by NK in WT cells.
         with_infection_progression: if False, infection progression is disabled and this always returns 0.
  
     Returns:
@@ -239,7 +240,7 @@ def progression_prop(t_prog, with_infection_progression):
     if not with_infection_progression:
         return 0.0
 
-    return 1 / t_prog
+    return r_val / t_prog
 
 
 @njit(cache=True)
@@ -287,11 +288,10 @@ def infect_prop(r, c, epith_grid, epith_is_alive, grid_r, grid_c, t_spread, m_i,
 
 
 @njit(cache=True)
-def death_independent_prop(r, c, epith_grid, c_0, c_i, m_d, with_death_independent, s_max):
+def death_independent_prop(r, c, epith_grid, c_0, c_i, m_npf, with_death_independent, s_max):
     """Propensity of a cell at (r, c) to die independently of its neighbors.
  
-    Every living cell has a baseline death rate c_0 (e.g. normal cell turnover). Once its infection state S exceeds the death threshold
-    `m_d`, an extra, infection-severity-dependent term is added on top. Note: The pre-introduction period [0, min(virus_delay, nk_delay))
+    Note: The pre-introduction period [0, min(virus_delay, nk_delay))
     is an unmodeled warm-up phase intended to preserve perfect tissue integrity prior to infection; baseline turnover begins exactly when the first
     external factor (virus or NK cells presence) is introduced.
 
@@ -300,7 +300,7 @@ def death_independent_prop(r, c, epith_grid, c_0, c_i, m_d, with_death_independe
         epith_grid: (grid_r, grid_c) array of epithelial-cell states s.
         c_0: baseline death rate applying to every living cell.
         c_i: extra death-rate coefficient for heavily infected cells.
-        m_d: state threshold above which the extra death term applies.
+        m_npf: structural protein production threshold (NP for IAV, F for RSV).
         with_death_independent: if False, this mechanism is disabled and the function always returns 0.
         s_max: maximum possible value of s.
  
@@ -313,7 +313,7 @@ def death_independent_prop(r, c, epith_grid, c_0, c_i, m_d, with_death_independe
 
     s_cell = epith_grid[r, c]
 
-    if s_cell > m_d:
+    if s_cell > m_npf:
         s_norm = s_cell / s_max
         return c_0 + c_i * s_norm
 
@@ -321,11 +321,11 @@ def death_independent_prop(r, c, epith_grid, c_0, c_i, m_d, with_death_independe
 
 
 @njit(cache=True)
-def death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_d, with_death_nk, s_max):
+def death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_ns1, with_death_nk, s_max):
     """Propensity of a cell at (r, c) to die due to the NK cells present there.
  
     The rate scales linearly with the number of NK cells co-located at the same node. As with `death_independent_prop`, a heavily infected cell
-    (s above the threshold `m_d`) is killed by NK cells at a higher per-NK-cell rate than a cell that is healthy or only mildly infected.
+     is killed by NK cells at a higher per-NK-cell rate than a cell that is healthy or only mildly infected.
  
     Args:
         r, c: coordinates of the cell being evaluated.
@@ -333,7 +333,7 @@ def death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_d, with_death_nk, s
         nk_grid: (grid_r, grid_c) array of NK-cell counts.
         c_nk: baseline per-NK-cell killing rate.
         c_i_nk: extra per-NK-cell killing-rate coefficient for heavily infected cells.
-        m_d: state threshold above which the extra killing term applies.
+        m_ns1: non-structural protein production threshold.
         with_death_nk: if False, this mechanism is disabled and the function always returns 0.
         s_max: maximum possible value of s.
  
@@ -347,7 +347,7 @@ def death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_d, with_death_nk, s
     nk_cells = nk_grid[r, c]
     s_cell = epith_grid[r, c]
 
-    if s_cell > m_d:
+    if s_cell > m_ns1:
         s_norm = s_cell / s_max
 
         return nk_cells * (c_nk + c_i_nk * s_norm)
@@ -410,8 +410,9 @@ def nk_move_prop(r, c, nk_grid, max_nk, grid_r, grid_c, a, b):
 
 @njit(cache=True)
 def run_simulation(time_max, virus_delay, nk_delay, max_steps, ani_step_save, grid_r, grid_c, 
-                   max_nk, a, b, s_max, t_prog, t_spread, m_i, m_d,
+                   max_nk, a, b, s_max, t_prog, r_val, t_spread, m_i, m_npf, m_ns1,
                    c_0, c_i, c_nk, c_i_nk,
+                   protein_scale_constant,
                    epith_grid_delayed, empty_grid, nk_grid_delayed,
                    with_death_independent, with_death_nk, with_infection_spread, with_infection_progression):
     """Run the full Gillespie simulation and record snapshots over time.
@@ -442,11 +443,14 @@ def run_simulation(time_max, virus_delay, nk_delay, max_steps, ani_step_save, gr
         a, b: NK-cell migration-rate parameters (see `nk_move_prop`).
         s_max: maximum possible infection state s.
         t_prog: mean time for an s -> s + 1 transition (see `progression_prop`).
+        r_val: reduction of infectivity by NK in WT (see `progression_prop`).
         t_spread: infection-spread time scale (see `infect_prop`).
         m_i: infectiousness threshold (see `infect_prop`).
-        m_d: death-rate threshold (see `death_independent_prop`, `death_nk_prop`).
+        m_npf: structural protein production threshold.
+        m_ns1: non-structural protein production threshold.
         c_0, c_i: independent-death-rate parameters.
         c_nk, c_i_nk: NK-induced death-rate parameters.
+        protein_scale_constant: constant used to rescale structural and non-structural protein load (to better fit the experimental data).
         epith_grid_delayed: (grid_r, grid_c) array, the epithelial state grid to switch to at `virus_delay` (typically from `init_epith_grid`).
         empty_grid: (grid_r, grid_c) all-zero array used as the "nothing introduced yet" placeholder for both grids.
         nk_grid_delayed: (grid_r, grid_c) array, the NK-cell grid to switch to at `nk_delay` (typically from `init_nk_grid`).
@@ -499,7 +503,7 @@ def run_simulation(time_max, virus_delay, nk_delay, max_steps, ani_step_save, gr
     max_frames = (max_steps // ani_step_save) + 2 + len(FRAME_CHECKPOINTS)
     frames_nk = np.zeros((max_frames, grid_r, grid_c), dtype = nk_grid.dtype)
     frames_epith = np.zeros((max_frames, grid_r, grid_c), dtype = epith_grid.dtype)
-    stats_array = np.zeros((max_frames, 4 + 2 * (s_max + 1)), dtype = np.float64)
+    stats_array = np.zeros((max_frames, 4 + 2 * (s_max + 1) + 2), dtype = np.float64)
     frame_idx = 0
 
 
@@ -559,11 +563,11 @@ def run_simulation(time_max, virus_delay, nk_delay, max_steps, ani_step_save, gr
                         infect_prop(r, c, epith_grid, epith_is_alive, grid_r, grid_c, t_spread, m_i, with_infection_spread, s_max) if s == 0 else 0.0)
 
         _set_propensity(IDX_INF_EVOL, r, c,
-                        progression_prop(t_prog, with_infection_progression) if 0 < s < s_max else 0.0)
+                        progression_prop(t_prog, r_val, with_infection_progression) if 0 < s < s_max else 0.0)
         
         _set_propensity(IDX_DEATH, r, c,
-                        death_independent_prop(r, c, epith_grid, c_0, c_i, m_d, with_death_independent, s_max)
-                        + death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_d, with_death_nk, s_max))
+                        death_independent_prop(r, c, epith_grid, c_0, c_i, m_npf, with_death_independent, s_max)
+                        + death_nk_prop(r, c, epith_grid, nk_grid, c_nk, c_i_nk, m_ns1, with_death_nk, s_max))
 
 
         # this cell's own state may have changed, so its healthy living neighbors' infection-spread propensity needs to be refreshed too
@@ -608,18 +612,34 @@ def run_simulation(time_max, virus_delay, nk_delay, max_steps, ani_step_save, gr
         stats_array[frame_idx, 3] = float(time)
 
         #histogram of the states of cells in the (living) cell population
-
         inf_histogram = np.zeros(s_max + 1, dtype = np.float64)
+
+        #mean non-structural (NS1) and structural (NP for IAV, F for ISV) protein level over LIVING (both healthy and infected) cells
+        ns1_total = 0.0
+        npf_total = 0.0
+        n_alive = 0
 
         for r in range(grid_r):
             for c in range(grid_c):
                 s = epith_grid[r, c]
                 if epith_is_alive[r, c]:
                     inf_histogram[s] += 1
+                    n_alive += 1
+                    ns1_total += max(0, s - m_ns1) * protein_scale_constant
+                    npf_total += max(0, s - m_npf) * protein_scale_constant               
 
-        #row layout: [healthy, infected, dead, time, <s_max + 1 current protein level histogram bins>, <s_max + 1 at-death protein-level histogram bins>]
+        if n_alive > 0:
+            ns1_mean = ns1_total / n_alive
+            npf_mean = npf_total / n_alive
+        else:
+            ns1_mean = 0.0
+            npf_mean = 0.0 
+
+        #row layout: [healthy, infected, dead, time, <state for alive cells histogram>, <state at-death histogram>, mean NS1 per living cell, mean NPF per living cell]
         stats_array[frame_idx, 4: 4 + s_max + 1] = inf_histogram
-        stats_array[frame_idx, 4 + s_max + 1 :] = dead_inf_hist
+        stats_array[frame_idx, 4 + s_max + 1 : 4 + 2 * (s_max + 1)] = dead_inf_hist
+        stats_array[frame_idx, 4 + 2 * (s_max + 1)] = ns1_mean
+        stats_array[frame_idx, 4 + 2 * (s_max + 1) + 1] = npf_mean
            
         frame_idx += 1
 
@@ -850,7 +870,8 @@ def run_with_params(p: dict):
                 "a", "b": NK-cell migration parameters, see `nk_move_prop`.
                 "s_max": maximum infection state.
                 "t_prog", "t_spread": characteristic time scales, see `progression_prop`, `infect_prop`.
-                "m_i", "m_d": infectious/death state thresholds, see `infect_prop`, `death_independent_prop`, `death_nk_prop`.
+                "r_val": reduction of infectivity.
+                "m_i", "m_npf", "m_ns1": infectious/protein state thresholds, see `infect_prop`, `death_independent_prop`, `death_nk_prop`.
                 "c_0", "c_i": independent-death-rate parameters (natural death rate and NK_independent virus-induced death-rate).
                 "c_nk", "c_i_nk": NK-induced and NK_virus-induced death-rate parameters.
             Mechanism on/off switches (booleans):
@@ -873,8 +894,9 @@ def run_with_params(p: dict):
                                                                     p["time_max"], p["virus_delay"], p["nk_delay"],
                                                                     p["max_steps"], p["ani_step_save"], int(p["grid_r"]), int(p["grid_c"]),
                                                                     int(p["max_nk"]), p["a"], p["b"], int(p["s_max"]),
-                                                                    p["t_prog"], p["t_spread"], int(p["m_i"]), int(p["m_d"]),
+                                                                    p["t_prog"], p["r_val"], p["t_spread"], int(p["m_i"]), int(p["m_npf"]), int(p["m_ns1"]),
                                                                     p["c_0"], p["c_i"], p["c_nk"], p["c_i_nk"],
+                                                                    p["protein_scale_constant"],
                                                                     epith_grid_delayed, empty_grid, nk_grid_delayed,
                                                                     p["with_death_independent"], p["with_death_nk"], p["with_infection_spread"],
                                                                     p["with_infection_progression"])
